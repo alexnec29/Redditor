@@ -97,8 +97,17 @@ fn main() {
 
 fn fetch_reddit_posts(link: &str) -> Result<RedditResponse, String> {
     match ureq::get(link).call() {
-        Ok(res) => serde_json::from_reader(res.into_reader())
-            .map_err(|e| format!("Failed to parse JSON response: {}", e)),
+        Ok(res) => {
+            let reader = res.into_reader();
+            match serde_json::from_reader(reader) {
+                Ok(data) => Ok(data),
+                Err(e) if e.is_syntax() => Err("Syntax error in JSON".to_string()),
+                Err(e) if e.is_data() => {
+                    Err("JSON structure does not match expected type".to_string())
+                }
+                Err(e) => Err(format!("Unknown JSON error: {}", e)),
+            }
+        }
         Err(Error::Status(code, res)) => {
             let response_string = res.into_string().unwrap_or_default();
             let reason =
@@ -107,7 +116,7 @@ fn fetch_reddit_posts(link: &str) -> Result<RedditResponse, String> {
         }
         Err(Error::Transport(transport)) => {
             if let Some(message) = transport.message() {
-                Err(format!("Network error: {}", message.to_string()))
+                Err(format!("Network error: {}", message))
             } else {
                 Err("Unknown network error occurred.".to_string())
             }
@@ -116,10 +125,14 @@ fn fetch_reddit_posts(link: &str) -> Result<RedditResponse, String> {
 }
 
 fn extract_reason(response: &str) -> Option<String> {
-    serde_json::from_str::<serde_json::Value>(response)
-        .ok()
-        .and_then(|json| {
-            json.get("reason")
-                .and_then(|r| r.as_str().map(|s| s.to_string()))
-        })
+    match serde_json::from_str::<serde_json::Value>(response) {
+        Ok(json) => match json.get("reason") {
+            Some(reason) => reason.as_str().map(String::from),
+            None => None,
+        },
+        Err(e) => {
+            println!("Failed to parse JSON: {}", e);
+            None
+        }
+    }
 }
