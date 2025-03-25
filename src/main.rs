@@ -17,8 +17,10 @@ fn main() -> Result<(), ureq::Error> {
     let subreddit = args.get(1).unwrap_or(&"rust".to_string()).clone();
     let mut sort = args.get(2).unwrap_or(&"hot".to_string()).clone();
 
-    let seconds=10;
+    let seconds=60;
     let interval = time::Duration::from_millis(seconds * 1000);
+
+    let mut printed_posts: Vec<String> = Vec::new();
 
     if !valid_sorts.contains(&sort) {
         eprintln!(
@@ -30,6 +32,7 @@ fn main() -> Result<(), ureq::Error> {
 
     let link = format!("https://www.reddit.com/r/{}/{}/.json", subreddit, sort);
     loop{
+        println!("Loading new posts...");
         let response = ureq::get(&link).call();
         match response {
             Ok(res) => {
@@ -46,19 +49,27 @@ fn main() -> Result<(), ureq::Error> {
 
                 for post in posts {
                     let post_data = &post["data"];
-                    let title = post_data["title"].as_str().unwrap_or("No title");
-                    let raw_permalink = post_data["permalink"].as_str().unwrap_or("");
-                    let permalink = format!("https://www.reddit.com{}", raw_permalink);
-                    let created_utc = post_data["created_utc"].as_f64().unwrap_or(0.0);
 
-                    let date_time =
-                        DateTime::from_timestamp(created_utc as i64, 0).expect("Invalid timestamp");
-                    let local_date_time = date_time.with_timezone(&Local);
+                    let id=post_data["id"].as_str().unwrap_or("").to_string().clone();
+
+                    if !printed_posts.contains(&id)
                     {
-                        println!("Title: {}", title);
-                        println!("Link to post: {}", permalink);
-                        println!("Creation date: {}", local_date_time);
-                        println!("");
+                        printed_posts.push(id);
+
+                        let title = post_data["title"].as_str().unwrap_or("No title");
+                        let raw_permalink = post_data["permalink"].as_str().unwrap_or("");
+                        let permalink = format!("https://www.reddit.com{}", raw_permalink);
+                        let created_utc = post_data["created_utc"].as_f64().unwrap_or(0.0);
+
+                        let date_time =
+                            DateTime::from_timestamp(created_utc as i64, 0).expect("Invalid timestamp");
+                        let local_date_time = date_time.with_timezone(&Local);
+                        {
+                            println!("Title: {}", title);
+                            println!("Link to post: {}", permalink);
+                            println!("Creation date: {}", local_date_time);
+                            println!("");
+                        }
                     }
                 }
             }
@@ -70,10 +81,10 @@ fn main() -> Result<(), ureq::Error> {
                 );
             }
             Err(_) => {
-                eprintln!("Error at response!");
+                eprintln!("No internet connection!");
             }
         }
-        println!("Printed the json! Waiting the interval...");
+        println!("Printed the posts! Waiting the interval...");
         thread::sleep(interval);
     }
 }
