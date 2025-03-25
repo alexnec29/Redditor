@@ -1,0 +1,10 @@
+[package]
+name = "redittor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ureq = "2.11.0"
+serde_json = "1.0.133"
+chrono = "0.4.38"
+serde = { version = "1.0", features = ["derive"] }
