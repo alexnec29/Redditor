@@ -28,15 +28,10 @@ struct PostData {
 }
 
 impl PostData {
-    fn created_datetime(&self) -> Result<DateTime<Local>, String> {
-        if self.created_utc < 0.0 {
-            return Err("Invalid timestamp: cannot be negative.".to_string());
-        }
-
-        match DateTime::<chrono::Utc>::from_timestamp(self.created_utc as i64, 0) {
-            Some(date_time) => Ok(date_time.with_timezone(&Local)),
-            None => Err("Invalid timestamp: could not create a valid DateTime.".to_string()),
-        }
+    fn created_datetime(&self) -> DateTime<Local> {
+        let date_time =
+            DateTime::from_timestamp(self.created_utc as i64, 0).expect("Invalid timestamp");
+        date_time.with_timezone(&Local)
     }
 }
 
@@ -81,10 +76,7 @@ fn main() {
                         printed_posts.push(post_data.id.clone());
                         println!("Title: {}", post_data.title);
                         println!("Link to post:https://www.reddit.com{}", post_data.permalink);
-                        match post_data.created_datetime() {
-                            Ok(local_date_time) => println!("Creation date: {}", local_date_time),
-                            Err(e) => println!("Failed to parse creation date: {}", e),
-                        }
+                        println!("Creation date: {}", post_data.created_datetime());
                         println!();
                     }
                 }
