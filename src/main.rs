@@ -36,29 +36,9 @@ impl PostData {
 }
 
 fn main() {
-    let valid_sorts = ["hot", "new", "top", "rising", "controversial"];
-
-    let args: Vec<String> = env::args().collect();
-    let subreddit = args.get(1).unwrap_or(&"rust".to_string()).clone();
-    let mut sort = args.get(2).unwrap_or(&"hot".to_string()).clone();
-    let seconds = args
-        .get(3)
-        .and_then(|s| s.parse::<u64>().ok())
-        .unwrap_or(60);
-    let interval = time::Duration::from_secs(seconds);
-
-    let mut printed_posts: Vec<String> = Vec::new();
-
-    if !valid_sorts.contains(&sort.as_str()) {
-        eprintln!(
-            "Invalid sort method: '{}'. Switching to default: 'hot'.",
-            sort
-        );
-        sort = "hot".to_string();
-    }
-
+    let (subreddit, sort, interval) = parse_arguments();
     let link = format!("https://www.reddit.com/r/{}/{}/.json", subreddit, sort);
-
+    let mut printed_posts: Vec<String> = Vec::new();
     loop {
         println!("Loading new posts...");
 
@@ -82,7 +62,7 @@ fn main() {
                 }
                 println!(
                     "Printed the posts! Waiting the {} seconds interval...",
-                    seconds
+                    interval.as_secs()
                 );
             }
             Err(e) => {
@@ -93,6 +73,27 @@ fn main() {
 
         thread::sleep(interval);
     }
+}
+
+fn parse_arguments() -> (String, String, time::Duration) {
+    const VALID_SORTS: [&str; 5] = ["hot", "new", "top", "rising", "controversial"];
+    let args: Vec<String> = env::args().collect();
+    let subreddit = args.get(1).unwrap_or(&"rust".to_string()).clone();
+    let mut sort = args.get(2).unwrap_or(&"hot".to_string()).clone();
+    let seconds = args
+        .get(3)
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(60);
+    let interval = time::Duration::from_secs(seconds);
+    if !VALID_SORTS.contains(&sort.as_str()) {
+        eprintln!(
+            "Invalid sort method: '{}'. Switching to default: 'hot'.",
+            sort
+        );
+        sort = "hot".to_string();
+    }
+
+    (subreddit, sort, interval)
 }
 
 fn fetch_reddit_posts(link: &str) -> Result<RedditResponse, String> {
