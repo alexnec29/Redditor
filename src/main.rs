@@ -40,7 +40,7 @@ impl PostData {
     }
 }
 
-fn main() -> Result<(), String> {
+fn main() {
     let valid_sorts = ["hot", "new", "top", "rising", "controversial"];
 
     let args: Vec<String> = env::args().collect();
@@ -70,7 +70,8 @@ fn main() -> Result<(), String> {
         match fetch_reddit_posts(&link) {
             Ok(reddit_response) => {
                 if reddit_response.data.children.is_empty() {
-                    return Err("No posts found. The subreddit might be invalid or empty.".to_string());
+                    eprintln!("No posts found. The subreddit might be invalid or empty.");
+                    break;
                 }
 
                 for post in reddit_response.data.children {
@@ -93,7 +94,8 @@ fn main() -> Result<(), String> {
                 );
             }
             Err(e) => {
-                return Err(e);
+                eprintln!("Error fetching posts: {}", e);
+                break;
             }
         }
 
@@ -107,13 +109,9 @@ fn fetch_reddit_posts(link: &str) -> Result<RedditResponse, String> {
             .map_err(|e| format!("Failed to parse JSON response: {}", e)),
         Err(Error::Status(code, res)) => {
             let response_string = res.into_string().unwrap_or_default();
-            let reason = extract_reason(&response_string)
-                .map_or("Unknown reason".to_string(), |r| r);
-            Err(format!(
-                "HTTP Error {} - {}",
-                code,
-                reason
-            ))
+            let reason =
+                extract_reason(&response_string).map_or("Unknown reason".to_string(), |r| r);
+            Err(format!("HTTP Error {} - {}", code, reason))
         }
         Err(Error::Transport(transport)) => {
             if let Some(message) = transport.message() {
@@ -128,5 +126,8 @@ fn fetch_reddit_posts(link: &str) -> Result<RedditResponse, String> {
 fn extract_reason(response: &str) -> Option<String> {
     serde_json::from_str::<serde_json::Value>(response)
         .ok()
-        .and_then(|json| json.get("reason").and_then(|r| r.as_str().map(|s| s.to_string())))
+        .and_then(|json| {
+            json.get("reason")
+                .and_then(|r| r.as_str().map(|s| s.to_string()))
+        })
 }
